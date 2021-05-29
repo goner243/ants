@@ -1,8 +1,8 @@
-﻿using MoreLinq;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
+using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
 using System.Text;
@@ -19,12 +19,12 @@ namespace ants
         Random rand = new Random();
 
         int antSize = 1;
-        int antsCount = 2000;
+        int antsCount = 3000;
         int bordersize = 5;
         int debugLineLengh = 50;
         int signalRadius = 100;
         int maxBases = 2;
-        int spawnCount = 1;
+        int spawnCount = 2;
         int generation = 0;
 
         List<Point> foodp = new List<Point>();
@@ -33,8 +33,9 @@ namespace ants
 
         int pictureH;
         int pictureW;
-        
+
         Color backgroundColor = Color.Black;
+
 
         public Form1()
         {
@@ -67,7 +68,7 @@ namespace ants
 
                 foodp.Add(food);
 
-                generation++; 
+                generation++;
             }
         }
 
@@ -197,7 +198,15 @@ namespace ants
             {
                 if (ant.life > 0)
                 {
+                    var stopwatch = new Stopwatch();
+
+                    stopwatch.Start();
+
                     CheckBorder(ant, frac);
+
+                    stopwatch.Stop();
+
+                    Console.WriteLine(stopwatch.Elapsed);
 
                     ant.x = ant.nextx;
                     ant.y = ant.nexty;
@@ -213,6 +222,31 @@ namespace ants
             });
         }
 
+        static void CheckEnemies(Ant ant, Fraction frac, Ant enemy, Fraction enemies)
+        {
+            //(ant.nextx - enemy.x) * (ant.nextx - enemy.x) + (ant.nexty - enemy.y) * (ant.nexty - enemy.y) 
+            if ((ant.nextx - enemy.x) * (ant.nextx - enemy.x) + (ant.nexty - enemy.y) * (ant.nexty - enemy.y) <= 25) //(enemy.distantion <= 25)
+            {
+                ant.direction += 180;
+                if (ant.direction > 180)
+                {
+                    ant.direction -= 360;
+                }
+
+                if (!ant.food)
+                {
+                    enemies.antsDead.Add(enemy);
+
+                    ant.food = true;
+
+                    ant.aDistance = 100;
+
+                    ant.nextx = (int)(ant.speed * Math.Cos(ant.direction / 57.29) + ant.x);
+                    ant.nexty = (int)(ant.speed * Math.Sin(ant.direction / 57.29) + ant.y);
+                }
+            }
+        }
+
         public void CheckBorder(Ant ant, Fraction frac)
         {
             int wallInclinationRadians = 1000;
@@ -221,26 +255,7 @@ namespace ants
 
             Parallel.ForEach(enemies.antsFood, enemy =>
             {
-                if ((ant.nextx - enemy.x) * (ant.nextx - enemy.x) + (ant.nexty - + enemy.y) * (ant.nexty - enemy.y) <= 25)
-                {
-                    ant.direction += 180;
-                    if (ant.direction > 180)
-                    {
-                        ant.direction -= 360;
-                    }
-
-                    ant.nextx = (int)(ant.speed * Math.Cos(ant.direction / 57.29) + ant.x);
-                    ant.nexty = (int)(ant.speed * Math.Sin(ant.direction / 57.29) + ant.y);
-
-                    if (!ant.food)
-                    {
-                        enemies.antsDead.Add(enemy);
-
-                        ant.food = true;
-
-                        ant.aDistance = 100;
-                    }
-                }
+                CheckEnemies(ant, frac, enemy, enemies);
             });
 
             foreach (Point food in foodp.ToList())
@@ -265,7 +280,7 @@ namespace ants
                     ant.food = true;
 
                     ant.aDistance = 0;
-                } 
+                }
             }
 
             foreach (Point mainB in frac.lp)
@@ -284,7 +299,7 @@ namespace ants
 
                     if (ant.food)
                     {
-                        if (ant.life > rand.Next(100))
+                        if (ant.life < rand.Next(200))
                         {
                             frac.totalFood += ant.foodCount;
                         }
@@ -340,11 +355,11 @@ namespace ants
 
         public void DrawAnts(List<Ant> ants)
         {
-                foreach (Ant ant in ants)
-                {
-                    gr.DrawEllipse(new Pen(ant.color) { Width = ant.speed / 8 }, ant.x, ant.y, ant.size, ant.size);
-                    //gr.DrawLine(new Pen(Brushes.Blue), ant.x + (antSize / 2), ant.y + (antSize / 2), (float)(debugLineLengh * Math.Cos(ant.direction / (180 / Math.PI)) + ant.x + (antSize / 2)), (float)(debugLineLengh * Math.Sin(ant.direction / (180 / Math.PI)) + ant.y + (antSize / 2)));
-                } 
+            foreach (Ant ant in ants)
+            {
+                gr.DrawEllipse(new Pen(ant.color) { Width = ant.speed / 8 }, ant.x, ant.y, ant.size, ant.size);
+                //gr.DrawLine(new Pen(Brushes.Blue), ant.x + (antSize / 2), ant.y + (antSize / 2), (float)(debugLineLengh * Math.Cos(ant.direction / (180 / Math.PI)) + ant.x + (antSize / 2)), (float)(debugLineLengh * Math.Sin(ant.direction / (180 / Math.PI)) + ant.y + (antSize / 2)));
+            }
         }
 
         public class Ant
@@ -365,13 +380,14 @@ namespace ants
             public int size;
             public int antGen = 0;
             public int fraction;
+            public int distantion;
             public int foodCount => size * 3;
 
             public Ant friend;
 
             public void SetColor()
             {
-                if(food)
+                if (food)
                 {
                     color = foodColor;
                 }
@@ -383,9 +399,9 @@ namespace ants
 
             public void Step()
             {
-                    aDistance++;
-                    bDistance++;
-                    life--; 
+                aDistance++;
+                bDistance++;
+                life--;
             }
         }
 
@@ -417,15 +433,13 @@ namespace ants
 
             ants.AsParallel().ForAll(ant =>
             {
-                //var friends = ants.Where(a => (ant.x - a.x) * (ant.x - a.x) + (ant.y - a.y) * (ant.y - a.y) <= signalRadius * signalRadius);
-
                 if (!ant.food)
                 {
                     var friend = antsA.Find(a => (ant.x - a.x) * (ant.x - a.x) + (ant.y - a.y) * (ant.y - a.y) <= signalPow);
 
                     if (ant.friend != friend && friend != null)
                     {
-                        if (ant.aDistance > friend.aDistance )
+                        if (ant.aDistance > friend.aDistance)
                         {
                             ant.aDistance = friend.aDistance + signalRadius;
 
@@ -460,7 +474,7 @@ namespace ants
 
         public void SetStep(Fraction frac)
         {
-            foreach(Ant ant in frac.ants.ToList())
+            foreach (Ant ant in frac.ants.ToList())
             {
                 if (ant.life <= 0)
                 {
@@ -475,7 +489,7 @@ namespace ants
                 {
                     ant.aDistance++;
                     ant.bDistance++;
-                    ant.life--; 
+                    ant.life--;
                 }
             }
 
@@ -495,22 +509,22 @@ namespace ants
                         SpawnAnt(rndPosX, rndDir, fract, baseM.x + rndPosX.Next(50), baseM.y + rndPosX.Next(50));
                         fract.totalFood -= 10;
                     }
-                } 
+                }
             }
         }
 
         public void SpawnBase(Ant ant, Fraction frac)
         {
-            Point mainB = new Point() { food = false, x = ant.x, y = ant.y};
+            Point mainB = new Point() { food = false, x = ant.x, y = ant.y };
             frac.lp.Add(mainB);
             frac.totalFood -= 250;
 
-            if(frac.totalFood > 10000 && antSize < 3)
+            if (frac.totalFood > 10000 && antSize < 3)
             {
                 antSize++;
                 frac.totalFood -= 7000;
             }
-            if(frac.totalFood > 100000 && spawnCount < 4)
+            if (frac.totalFood > 100000 && spawnCount < 4)
             {
                 spawnCount++;
                 frac.totalFood -= 90000;
@@ -519,7 +533,7 @@ namespace ants
 
         public void DrawBases(Fraction frac)
         {
-            foreach(Point p in frac.lp.ToList())
+            foreach (Point p in frac.lp.ToList())
             {
                 if (p.life > 0)
                 {
@@ -544,7 +558,7 @@ namespace ants
             {
                 if (food.foodCount > 0)
                 {
-                    gr.FillEllipse(Brushes.Green, food.x, food.y, food.radius, food.radius); 
+                    gr.FillEllipse(Brushes.Green, food.x, food.y, food.radius, food.radius);
                 }
                 else
                 {
@@ -555,7 +569,7 @@ namespace ants
 
         public void SortAnts(Fraction frac)
         {
-            foreach(Ant ant in frac.antsDead)
+            foreach (Ant ant in frac.antsDead)
             {
                 frac.ants.Remove(ant);
             }
@@ -576,11 +590,13 @@ namespace ants
                 SortAnts(frac);
                 DrawFood();
                 DrawBases(frac);
+
                 MoveAnts(frac);
+
                 SetStep(frac);
                 Scan(frac.ants, frac.antsA, frac.antsB);
                 DrawAnts(frac.ants);
-                SpawnNewAnt(frac); 
+                SpawnNewAnt(frac);
             }
 
             pictureBox1.Image = bmp;
@@ -594,6 +610,7 @@ namespace ants
             //label2.Text = "Total Food " + totalFood.ToString();
             label3.Text = "Total Generation " + generation.ToString();
             //label4.Text = "Oldest Generation " + ants.Select(a => a.antGen).Min(a => a).ToString();
+            //CalcKernel();
         }
     }
 }
