@@ -36,7 +36,7 @@ namespace ants
 
         Color backgroundColor = Color.Black;
 
-
+        //Инициализация формы
         public Form1()
         {
             InitializeComponent();
