@@ -53,7 +53,6 @@ namespace ants
 
             reDraw();
 
-
             timer1.Start();
         }
 
